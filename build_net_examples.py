@@ -30,7 +30,7 @@ reload(lp)
 reload(non)
 reload(nu)
 
-def ff_net():
+def crazy_net():
     X = np.random.rand(5,10).round()
     y2_2 = np.random.rand(5,1).round()
     y6 = np.random.randn(5,3)
@@ -70,11 +70,11 @@ def ff_net():
 
     return net
 
-def binary_tied_autoencoder(X=None,numhid=7):
+def binary_tied_autoencoder_dropout(X=None,numhid=7,input_layer_dropout=0.2,hidden_layer_dropout=0.5):
     if (X is None):
         X = np.random.rand(5,10).round()
-    input_layer = la.InputLayer(X.shape[1])
-    layer1 = la.Layer(numhid,non.SigmoidNonlin())
+    input_layer = la.InputLayer(X.shape[1],dropout_rate=input_layer_dropout)
+    layer1 = la.Layer(numhid,non.SigmoidNonlin(),dropout_rate=hidden_layer_dropout)
     output_layer = la.Layer(X.shape[1],non.SigmoidNonlin(),weight_type=lp.TransposeWeight)
 
     net = nnet.NeuralNet()

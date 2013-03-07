@@ -1,25 +1,49 @@
+##
+# Copyright (C) 2012 Kevin Swersky
+# 
+# This code is written for research and educational purposes only.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 import nnet_utils as nu
 from collections import deque
 from collections import OrderedDict
 import Nonlin as non
 import Layer as la
+import LayerParam as lp
 
-def checkgrad_test(seed=1,eps=1e-5):
+reload(la)
+reload(lp)
+reload(non)
+reload(nu)
+
+def checkgrad_test(build_net,seed=1,eps=1e-5):
     np.random.seed(seed)
-    net = build_net()
+    net = build_net()[0]
     net.check_grad(eps)
 
 def param_vec_test():
-    net = build_net()
+    net = build_net()[0]
     param_vec = net.get_vec()
     print param_vec
     net.set_param_vec(param_vec)
     print net.get_vec()
 
-def checkgrad_vec_test(seed=1,eps=1e-5):
+def checkgrad_vec_test(build_net,seed=1,eps=1e-5):
     np.random.seed(seed)
     net = build_net()
+
     param_vec = net.get_vec()
     f = net.forward_prop()
     net.backward_prop()
@@ -38,44 +62,6 @@ def checkgrad_vec_test(seed=1,eps=1e-5):
         print [g[i], g_est[i]]
     return g,g_est
 
-def build_net():
-    X = np.random.rand(5,10).round()
-    y2_2 = np.random.rand(5,1).round()
-    y6 = np.random.randn(5,3)
-    y6 = np.double(y6 == y6.max(1)[:,None])
-
-    net = NeuralNet()
-
-    layer1 = la.Layer(7,non.SoftmaxNonlin())
-    layer2_1 = la.Layer(9,non.SoftReluNonlin())
-    layer2_2 = la.Layer(1,non.SigmoidNonlin())
-    layer3 = la.Layer(4,non.SoftReluNonlin())
-    layer4_1 = la.Layer(4,non.SoftReluNonlin())
-    layer4_2 = la.Layer(3,non.SoftmaxNonlin())
-    layer5 = la.Layer(4,non.SoftReluNonlin()) 
-    layer6 = la.Layer(10,non.SigmoidNonlin())
-    
-    net.add_layer(10,layer1)
-    net.add_layer(layer1,layer2_1)
-    net.add_layer(layer1,layer2_2)
-    net.add_layer(layer2_1,layer3)
-    params = net.add_layer(layer3,layer4_1)
-    net.add_layer(layer3,layer4_2)
-    net.add_layer(layer4_1,layer5,params)
-    net.add_layer(layer5,layer6)
-
-    net.add_input('layer1_input',layer1)
-    net.add_loss_function('loss2_2',layer2_2,non.SigmoidNonlin.crossentropy_loss)
-    net.add_loss_function('loss4_2',layer4_2,non.SoftmaxNonlin.crossentropy_loss,1)
-    net.add_loss_function('loss6_v2',layer6,non.SigmoidNonlin.crossentropy_loss,2)
-
-    net.set_input('layer1_input',X)
-    net.set_target('loss2_2',y2_2)
-    net.set_target('loss4_2',y6)
-    net.set_target('loss6_v2',X)
-
-    return net
-
 class NeuralNet:
     def __init__(self):
         self.first_layer = None
@@ -83,31 +69,37 @@ class NeuralNet:
         self.input_layers = {}
         self.target_layers = {}
 
-    def add_layer(self,an_input,output_layer,params=None):
-        try:
-            if (type(an_input) == int):
-                self.first_layer = output_layer
-                input_size = an_input
-            elif (an_input.__class__ == la.Layer):
-                an_input.output_layers.append(output_layer)
-                output_layer.input_layer = an_input
-                input_size = an_input.size
-            else:
-                raise Exception('Input must either be an int or a Layer object')
+    def add_layer(self,a_layer,output_layer,weight_multiplier=0.1,bias_multiplier=0):
+        self.__add_layer(a_layer,output_layer)
 
-            if (params is None):
-                output_layer.params = LayerParam(input_size,output_layer.size)
-            else:
-                assert params.W.shape[0] == input_size and params.W.shape[1] == output_layer.size, 'Input and output sizes must match the given parameter shape.'
-                output_layer.params = params
-
-        except Exception as e:
-            print e
+        input_size = a_layer.size
+        output_layer.params.make_weights(input_size,output_layer.size,0.1)
+        output_layer.params.make_biases(output_layer.size)
 
         self.__update_net_structure()
 
         return output_layer.params
 
+    def add_input_layer(self,input_layer):
+        self.first_layer = input_layer
+        self.__update_net_structure()
+
+    def tie_weights(self, layer,tied_layer):
+        tied_layer.params.set_weights(layer.params.weights)
+        self.__update_net_structure()
+
+    def tie_biases(self, layer,tied_layer):
+        tied_layer.params.set_biases(layer.params.biases)
+        self.__update_net_structure()
+
+    def tie_weights_and_biases(self, layer,tied_layer):
+        self.tie_weights(layer,tied_layer)
+        self.tie_biases(layer,tied_layer)
+
+    def __add_layer(self,a_layer,output_layer):
+        a_layer.output_layers.append(output_layer)
+        output_layer.input_layer = a_layer
+    
     def add_input(self,input_name,layer):
         self.input_layers[input_name] = layer
 
@@ -121,14 +113,14 @@ class NeuralNet:
         self.target_layers[loss_name] = layer
 
     def set_input(self,input_name,inp):
-        self.input_layers[input_name].inputs = inp
+        self.input_layers[input_name].data = inp
 
     def set_target(self,target_name,targ):
         self.target_layers[target_name].targets[target_name] = targ
 
     def set_inputs(self,*input_list):
         for (input_name,inp) in input_list:
-            self.input_layers[input_name].inputs = inp
+            self.input_layers[input_name].data = inp
 
     def set_targets(self,*target_list):
         for (target_name,targ) in target_list:
@@ -158,31 +150,41 @@ class NeuralNet:
 
     def backward_prop(self):
         for layer in self.layers:
-            layer.params.reset_gradients()
+            if (not isinstance(layer,la.InputLayer)):
+                layer.params.weights.reset_gradients()
+                layer.params.biases.reset_gradients()
 
         for layer in self.layers[::-1]:
             layer.backward_prop()
 
-    def gradient_step(self,eta,mo=0):
+    def take_gradient_step(self,eta,mo=0):
         f = self.forward_prop()
         self.backward_prop()
         for param in self.param_set:
-            param.moW = param.moW - eta*param.dW
-            param.mob = param.mob - eta*param.db
-            param.W = param.W + param.moW
-            param.b = param.b + param.mob
+            param.add_to_momentum(mo,-eta*param.dparam)
+            param.take_step(param.moparam)
             
         return f
+
+    def nnet_vec_obj(self,param_vec):
+        self.set_param_vec(param_vec)
+        return self.forward_prop()
+
+    def nnet_vec_grad(self,param_vec):
+        self.set_param_vec(param_vec)
+        f = self.forward_prop()
+        self.backward_prop()
+        return self.get_vec(grad=True)
 
     def get_vec(self,grad=False):
         param_vec = np.zeros(self.total_count)
         index = 0
-        for param in self.param_set.keys():
+        for weight in self.param_set.keys():
             if (not grad):
-                param_vec[index:index+param.count] = param.get_param_vec()
+                param_vec[index:index+weight.count] = weight.get_param_vec()
             else:
-                param_vec[index:index+param.count] = param.get_grad_vec()
-            index = index + param.count
+                param_vec[index:index+weight.count] = weight.get_grad_vec()
+            index = index + weight.count
 
         return param_vec
 
@@ -196,9 +198,13 @@ class NeuralNet:
         param_set = OrderedDict()
         total_count = 0
         for layer in self.layers:
-            if (not param_set.has_key(layer.params)):
-                param_set[layer.params] = True
-                total_count += layer.params.count
+            if (not isinstance(layer,la.InputLayer)):
+                if (not param_set.has_key(layer.params.weights)):
+                    param_set[layer.params.weights] = True
+                    total_count += layer.params.weights.count
+                if (not param_set.has_key(layer.params.biases)):
+                    param_set[layer.params.biases] = True
+                    total_count += layer.params.biases.count
 
         return param_set,total_count
 
@@ -207,29 +213,30 @@ class NeuralNet:
         self.backward_prop()
 
         for layer in self.layers:
-            dW_est = np.zeros(layer.params.dW.shape)
-            db_est = np.zeros(layer.params.db.shape)
-            for i in range(layer.params.W.shape[0]):
-                for j in range(layer.params.W.shape[1]):
-                    layer.params.W[i,j] += eps
-                    loss_1 = self.forward_prop()
-                    layer.params.W[i,j] -= 2*eps
-                    loss_2 = self.forward_prop()
-                    layer.params.W[i,j] += eps
-                    dW_est[i,j] = (loss_1 - loss_2) / (2*eps)
+            if (not isinstance(layer,la.InputLayer)):
+                dW_est = np.zeros(layer.params.weights.dparam.shape)
+                db_est = np.zeros(layer.params.biases.dparam.shape)
+                for i in range(layer.params.weights.param.shape[0]):
+                    for j in range(layer.params.weights.param.shape[1]):
+                        layer.params.weights.param[i,j] += eps
+                        loss_1 = self.forward_prop()
+                        layer.params.weights.param[i,j] -= 2*eps
+                        loss_2 = self.forward_prop()
+                        layer.params.weights.param[i,j] += eps
+                        dW_est[i,j] = (loss_1 - loss_2) / (2*eps)
 
-            for i in range(layer.params.b.shape[0]):
-                for j in range(layer.params.b.shape[1]):
-                    layer.params.b[i,j] += eps
-                    loss_1 = self.forward_prop()
-                    layer.params.b[i,j] -= 2*eps
-                    loss_2 = self.forward_prop()
-                    layer.params.b[i,j] += eps
-                    db_est[i,j] = (loss_1 - loss_2) / (2*eps)
+                for i in range(layer.params.biases.param.shape[0]):
+                    for j in range(layer.params.biases.param.shape[1]):
+                        layer.params.biases.param[i,j] += eps
+                        loss_1 = self.forward_prop()
+                        layer.params.biases.param[i,j] -= 2*eps
+                        loss_2 = self.forward_prop()
+                        layer.params.biases.param[i,j] += eps
+                        db_est[i,j] = (loss_1 - loss_2) / (2*eps)
 
-            print layer.params.dW
-            print dW_est
-            print layer.params.db
-            print db_est
-            print 'dW error: %s' % np.linalg.norm(layer.params.dW.flatten() - dW_est.flatten())
-            print 'db error: %s' % np.linalg.norm(layer.params.db.flatten() - db_est.flatten())
+                print layer.params.weights.dparam
+                print dW_est
+                print layer.params.biases.dparam
+                print db_est
+                print 'dW error: %s' % np.linalg.norm(layer.params.weights.dparam.flatten() - dW_est.flatten())
+                print 'db error: %s' % np.linalg.norm(layer.params.biases.dparam.flatten() - db_est.flatten())

@@ -1,3 +1,21 @@
+##
+# Copyright (C) 2012 Kevin Swersky
+# This code is inspired by code originally written by Ilya Sutskever.
+# 
+# This code is written for research and educational purposes only.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 import nnet_utils as nu
 
@@ -25,6 +43,27 @@ class SigmoidNonlin(Nonlin):
             return loss
         else:
             dloss = (preds - targets) / targets.shape[0]
+            return dloss
+
+    def intersection_over_union_loss(self,total_input,targets,grad=False):
+        preds = nu.sigmoid(total_input)
+        t1 = targets*preds
+        t2 = (1-targets)*preds
+        if (not grad):
+            loss = -np.mean(np.log(t1.sum(1)) - np.log((targets+t2).sum(1)))
+            return loss
+        else:
+            dloss = -((1/t1.sum(1))[:,None]*t1 - (1/(targets+t2).sum(1))[:,None]*t2)*(1-preds) / targets.shape[0]
+            return dloss
+
+    def kl_sparsity_loss(self,total_input,target_prob,grad=False):
+        preds = nu.sigmoid(total_input)
+        q = preds.mean(0)
+        if (not grad):
+            loss = -np.sum(target_prob*np.log(q) + (1-target_prob)*np.log(1-q))
+            return loss
+        else:
+            dloss = preds*(1-preds)*((q - target_prob)/(q*(1-q))) / total_input.shape[0]
             return dloss
 
 class AbsNonlin(Nonlin):
