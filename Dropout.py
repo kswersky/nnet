@@ -24,7 +24,6 @@ class VanillaDropper(Dropper):
         if (self.dropout_rate > 0):
             self.drop_mask = np.random.rand(*X.shape) >= self.dropout_rate
 
-#Plackett-Luce dropout.
 class PLDropper(Dropper):
     def __init__(self,dropout_rate):
         Dropper.__init__(self,dropout_rate)
@@ -48,7 +47,6 @@ class PLDropper(Dropper):
             sx = xx.sum()
         return xx == 0
 
-#Plackett-Luce dropout with Gumbel sampling.
 class PLGumbelDropper(Dropper):
     def __init__(self,dropout_rate):
         Dropper.__init__(self,dropout_rate)
