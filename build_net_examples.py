@@ -23,12 +23,14 @@ import Nonlin as non
 import Layer as la
 import LayerParam as lp
 import nnet
+import Dropout as dp
 
 reload(nnet)
 reload(la)
 reload(lp)
 reload(non)
 reload(nu)
+reload(dp)
 
 def crazy_net():
     X = np.random.rand(5,10).round()
@@ -70,11 +72,17 @@ def crazy_net():
 
     return net
 
-def binary_tied_autoencoder_dropout(X=None,numhid=7,input_layer_dropout=0.2,hidden_layer_dropout=0.5):
+def binary_tied_autoencoder_dropout(
+        X=None,numhid=7,
+        input_layer_dropout_type=dp.VanillaDropper,
+        input_layer_dropout_rate=0.2,
+        hidden_layer_dropout_type=dp.VanillaDropper,
+        hidden_layer_dropout_rate=0.5):
+
     if (X is None):
         X = np.random.rand(5,10).round()
-    input_layer = la.InputLayer(X.shape[1],dropout_rate=input_layer_dropout)
-    layer1 = la.Layer(numhid,non.SigmoidNonlin(),dropout_rate=hidden_layer_dropout)
+    input_layer = la.InputLayer(X.shape[1],dropper=input_layer_dropout_type(input_layer_dropout_rate))
+    layer1 = la.Layer(numhid,non.SigmoidNonlin(),dropper=hidden_layer_dropout_type(hidden_layer_dropout_rate))
     output_layer = la.Layer(X.shape[1],non.SigmoidNonlin(),weight_type=lp.TransposeWeight)
 
     net = nnet.NeuralNet()
@@ -100,7 +108,7 @@ def binary_tied_autoencoder_dropout(X=None,numhid=7,input_layer_dropout=0.2,hidd
 def binary_sparse_autoencoder(X=None,numhid=7,kl_target=0.1,kl_weight=1):
     if (X is None):
         X = np.random.rand(5,10).round()
-    input_layer = la.InputLayer(X.shape[1],drop_rate=0.5)
+    input_layer = la.InputLayer(X.shape[1])
     layer1 = la.Layer(numhid,non.SigmoidNonlin())
     output_layer = la.Layer(X.shape[1],non.SigmoidNonlin())
 

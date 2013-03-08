@@ -42,7 +42,7 @@ def param_vec_test():
 
 def checkgrad_vec_test(build_net,seed=1,eps=1e-5):
     np.random.seed(seed)
-    net = build_net()
+    net = build_net()[0]
 
     param_vec = net.get_vec()
     f = net.forward_prop()

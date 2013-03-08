@@ -17,9 +17,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 import LayerParam as lp
+import Dropout as dp
 
 class Layer:
-    def __init__(self,size,nonlin,weight_type=lp.LinearWeight,bias_type=lp.LinearBias,dropout_rate=0):
+    def __init__(self,size,nonlin,weight_type=lp.LinearWeight,bias_type=lp.LinearBias,dropper=dp.VanillaDropper(0)):
         self.size = size
         self.nonlin = nonlin
         self.output_layers = []
@@ -32,16 +33,14 @@ class Layer:
         self.loss_functions = {}
         self.loss_weights = {}
         self.total_input = None
-        self.dropout_rate = dropout_rate
-        self.drop_mask = None
+        self.dropper = dropper
 
     def forward_prop(self):
         self.total_input = self.params.compute_total_input(self.input_layer.outputs)
         self.outputs = self.nonlin.nonlin(self.total_input)
 
-        if (self.dropout_rate > 0):
-            self.drop_mask = np.random.rand(*self.outputs.shape) >= self.dropout_rate
-            self.outputs *= self.drop_mask
+        self.dropper.set_dropout_mask(self.outputs)
+        self.outputs = self.dropper.apply_dropout(self.outputs)
 
         if (self.loss_functions):
             return self.apply_loss_functions()
@@ -53,8 +52,7 @@ class Layer:
 
         backward_act = self.nonlin.nonlin_grad_J(self.total_input,total_backprop_grad_from_outputs)
 
-        if (self.dropout_rate > 0):
-            backward_act *= self.drop_mask
+        self.outputs = self.dropper.apply_dropout(backward_act)
 
         if (self.loss_functions):
             dloss = self.apply_loss_functions(grad=True)
@@ -71,15 +69,14 @@ class Layer:
         return total_loss
 
 class InputLayer(Layer):
-    def __init__(self,size,dropout_rate=0):
-        Layer.__init__(self,size,None,dropout_rate=dropout_rate)
+    def __init__(self,size,dropper=dp.VanillaDropper(0)):
+        Layer.__init__(self,size,None,dropper=dropper)
         self.data = None
 
     def forward_prop(self):
         self.outputs = self.data
-        if (self.dropout_rate > 0):
-            self.drop_mask = np.random.rand(*self.outputs.shape) >= self.dropout_rate
-            self.outputs = self.outputs * self.drop_mask
+        self.dropper.set_dropout_mask(self.outputs)
+        self.outputs = self.dropper.apply_dropout(self.outputs)
 
     def backward_prop(self):
         self.backprop_grad = None

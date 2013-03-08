@@ -17,14 +17,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import optim as op
 import build_net_examples as bne
-import load_datasets as ld
 import display_filters as d
 import numpy as np
 from scipy.io import loadmat
 import pylab
 
 def train_tied_autoencoder_dropout_sgd(X,num_hid,num_iters,eta,mo):
-    net,input_dict,target_dict,param_dict = bne.binary_tied_autoencoder_dropout(X,num_hid,input_layer_dropout=0.2,hidden_layer_dropout=0.5)
+    net,input_dict,target_dict,param_dict = bne.binary_tied_autoencoder_dropout(X,num_hid)
     op.train_nnet_sgd(net,input_dict,target_dict,num_iters=num_iters,eta=eta,mo=mo)
     W = param_dict['W'].param
     pylab.ioff()
@@ -46,7 +45,7 @@ if __name__ == '__main__':
     X = D['X']
 
     num_examples = X.shape[0]
-    num_hid = 10
+    num_hid = 100
     num_iters = 50
     eta = 0.1
     mo = 0.9
