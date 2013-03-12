@@ -59,7 +59,7 @@ if __name__ == '__main__':
     Ytest = D[3]
 
     num_examples = X.shape[0]
-    num_hid = 1000
+    num_hid = 10
     num_iters = 50
     eta = 0.1
     mo = 0.9
