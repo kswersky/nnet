@@ -20,6 +20,7 @@ import build_net_examples as bne
 import display_filters as d
 import numpy as np
 from scipy.io import loadmat
+import load_datasets as ld
 import pylab
 
 def train_tied_autoencoder_dropout_sgd(X,num_hid,num_iters,eta,mo):
@@ -40,12 +41,25 @@ def train_sparse_autoencoder_sgd(X,num_hid,num_iters,eta,mo,kl_target,kl_weight)
     pylab.show()
     return param_dict
 
+def train_classifier_net(X,Y,Xtest,Ytest,num_hid,num_iters,eta,mo):
+    net,input_dict,target_dict,param_dict = bne.one_layer_classifier_net(X,Y,num_hid)
+    op.train_nnet_sgd(net,input_dict,target_dict,num_iters=num_iters,eta=eta,mo=mo,Xtest=Xtest,Ytest=Ytest)
+    W = param_dict['W'].param
+    pylab.ioff()
+    d.print_aligned(W)
+    pylab.show()
+    return param_dict
+
 if __name__ == '__main__':
-    D = loadmat('mnist_small.mat')
-    X = D['X']
+    #D = loadmat('mnist_small.mat')
+    D = ld.load_mnist(range(10))
+    X = D[0]
+    Y = D[1]
+    Xtest = D[2]
+    Ytest = D[3]
 
     num_examples = X.shape[0]
-    num_hid = 100
+    num_hid = 1000
     num_iters = 50
     eta = 0.1
     mo = 0.9
@@ -53,5 +67,6 @@ if __name__ == '__main__':
 
     ind = np.random.permutation(X.shape[0])[0:num_examples]
     X = X[ind]
+    Y = Y[ind]
 
-    train_tied_autoencoder_dropout_sgd(X,num_hid,num_iters,eta,mo)
+    train_classifier_net(X,Y,Xtest,Ytest,num_hid,num_iters,eta,mo)

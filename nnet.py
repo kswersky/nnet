@@ -139,10 +139,10 @@ class NeuralNet:
 
         self.param_set,self.total_count = self.get_net_param_info()
 
-    def forward_prop(self):
+    def forward_prop(self,test=False):
         total_loss = 0
         for layer in self.layers:
-            loss = layer.forward_prop()
+            loss = layer.forward_prop(test=test)
             if (loss is not None):
                 total_loss += loss
 
@@ -157,13 +157,26 @@ class NeuralNet:
         for layer in self.layers[::-1]:
             layer.backward_prop()
 
-    def take_gradient_step(self,eta,mo=0):
-        f = self.forward_prop()
-        self.backward_prop()
-        for param in self.param_set:
-            param.add_to_momentum(mo,-eta*param.dparam)
-            param.take_step(param.moparam)
+    def take_gradient_step(self,eta,mo=0,step_type='nesterov'):
+        if (step_type == 'nesterov'):
+            for param in self.param_set:
+                param.take_step(param.moparam)
+
+            f = self.forward_prop()
+            self.backward_prop()
+
+            for param in self.param_set:
+                param.take_step(-param.moparam)
+                param.add_to_momentum(mo,-eta*param.dparam)
+                param.take_step(param.moparam)
+        elif (step_type == 'polyak'):
+            f = self.forward_prop()
+            self.backward_prop()
             
+            for param in self.param_set:
+                param.add_to_momentum(mo,-eta*param.dparam)
+                param.take_step(param.moparam)
+
         return f
 
     def nnet_vec_obj(self,param_vec):
@@ -208,7 +221,8 @@ class NeuralNet:
 
         return param_set,total_count
 
-    def check_grad(self,eps):
+    def check_grad(self,eps,seed=1):
+        np.random.seed(seed)
         self.forward_prop()
         self.backward_prop()
 
@@ -219,8 +233,10 @@ class NeuralNet:
                 for i in range(layer.params.weights.param.shape[0]):
                     for j in range(layer.params.weights.param.shape[1]):
                         layer.params.weights.param[i,j] += eps
+                        np.random.seed(seed)
                         loss_1 = self.forward_prop()
                         layer.params.weights.param[i,j] -= 2*eps
+                        np.random.seed(seed)
                         loss_2 = self.forward_prop()
                         layer.params.weights.param[i,j] += eps
                         dW_est[i,j] = (loss_1 - loss_2) / (2*eps)
@@ -228,8 +244,10 @@ class NeuralNet:
                 for i in range(layer.params.biases.param.shape[0]):
                     for j in range(layer.params.biases.param.shape[1]):
                         layer.params.biases.param[i,j] += eps
+                        np.random.seed(seed)
                         loss_1 = self.forward_prop()
                         layer.params.biases.param[i,j] -= 2*eps
+                        np.random.seed(seed)
                         loss_2 = self.forward_prop()
                         layer.params.biases.param[i,j] += eps
                         db_est[i,j] = (loss_1 - loss_2) / (2*eps)

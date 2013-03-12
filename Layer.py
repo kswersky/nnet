@@ -35,12 +35,16 @@ class Layer:
         self.total_input = None
         self.dropper = dropper
 
-    def forward_prop(self):
-        self.total_input = self.params.compute_total_input(self.input_layer.outputs)
-        self.outputs = self.nonlin.nonlin(self.total_input)
+    def forward_prop(self,**kwargs):
+        test = kwargs.get('test',False)
+        if (not test):
+            self.total_input = self.params.compute_total_input(self.input_layer.outputs)
+        else:
+            self.total_input = self.dropper.compute_total_input_test(self.input_layer.outputs,self.params,self.input_layer.dropper.dropout_rate)
 
-        self.dropper.set_dropout_mask(self.outputs)
-        self.outputs = self.dropper.apply_dropout(self.outputs)
+        self.outputs = self.nonlin.nonlin(self.total_input)
+        self.dropper.set_dropout_mask(self.outputs,test=test)
+        self.outputs = self.dropper.apply_dropout(self.outputs,test=test)
 
         if (self.loss_functions):
             return self.apply_loss_functions()
@@ -51,8 +55,7 @@ class Layer:
             total_backprop_grad_from_outputs = total_backprop_grad_from_outputs + ol.backprop_grad
 
         backward_act = self.nonlin.nonlin_grad_J(self.total_input,total_backprop_grad_from_outputs)
-
-        self.outputs = self.dropper.apply_dropout(backward_act)
+        backward_act = self.dropper.apply_dropout(backward_act)
 
         if (self.loss_functions):
             dloss = self.apply_loss_functions(grad=True)
@@ -73,10 +76,11 @@ class InputLayer(Layer):
         Layer.__init__(self,size,None,dropper=dropper)
         self.data = None
 
-    def forward_prop(self):
+    def forward_prop(self,**kwargs):
+        test = kwargs.get('test',False)
         self.outputs = self.data
-        self.dropper.set_dropout_mask(self.outputs)
-        self.outputs = self.dropper.apply_dropout(self.outputs)
+        self.dropper.set_dropout_mask(self.outputs,test=test)
+        self.outputs = self.dropper.apply_dropout(self.outputs,test=test)
 
     def backward_prop(self):
         self.backprop_grad = None

@@ -28,6 +28,9 @@ def train_nnet_sgd(net,input_dict,target_dict,**kwargs):
     batch_size = kwargs.get('batch_size',100)
     eta = kwargs.get('eta',0.1)
     mo = kwargs.get('mo',0)
+    Xtest = kwargs.get('Xtest',None)
+    Ytest = kwargs.get('Ytest',None)
+    err_history = []
     for input_name,inp in input_dict.iteritems():
         assert (num_examples == 0 or inp.shape[0] == num_examples), 'Number of examples must be consistent across inputs.'
         num_examples = inp.shape[0]
@@ -52,4 +55,13 @@ def train_nnet_sgd(net,input_dict,target_dict,**kwargs):
             f = net.take_gradient_step(eta,mo)
             obj += f/num_batches
 
-        print 'Iteration %d complete. Object value: %s' % (i,obj)
+        if (Xtest is not None and Ytest is not None):
+            net.set_input('input',Xtest)
+            net.set_target('classification loss',Ytest)
+            loss = net.forward_prop(test=True)
+            preds = net.target_layers['classification loss'].outputs
+            err = (preds.argmax(1) != Ytest.argmax(1)).mean()
+            err_history.append(err)
+            print 'Iteration %d complete. Object value: %s\nTest objective value: %s\nTest error history: %s' % (i,obj,loss,err_history)
+        else:
+            print 'Iteration %d complete. Object value: %s' % (i,obj)

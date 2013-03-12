@@ -72,8 +72,38 @@ def crazy_net():
 
     return net
 
+def one_layer_classifier_net(
+        X,
+        Y,
+        numhid,
+        input_layer_dropout_type=dp.VanillaDropper,
+        input_layer_dropout_rate=0.2,
+        hidden_layer_dropout_type=dp.PLGumbelDropper,
+        hidden_layer_dropout_rate=0.5):
+
+    input_layer = la.InputLayer(X.shape[1],dropper=input_layer_dropout_type(input_layer_dropout_rate))
+    layer1 = la.Layer(numhid,non.ReluNonlin(),dropper=hidden_layer_dropout_type(hidden_layer_dropout_rate))
+    layer2 = la.Layer(numhid,non.ReluNonlin(),dropper=hidden_layer_dropout_type(hidden_layer_dropout_rate))
+    output_layer = la.Layer(Y.shape[1],non.SoftmaxNonlin())
+
+    net = nnet.NeuralNet()
+    net.add_input_layer(input_layer)
+    net.add_layer(input_layer,layer1)
+    net.add_layer(layer1,layer2)
+    net.add_layer(layer2,output_layer)
+
+    net.add_input('input',input_layer)
+    net.add_loss_function('classification loss',output_layer,non.SoftmaxNonlin.crossentropy_loss)
+
+    input_dict = {'input':X}
+    target_dict = {'classification loss':Y}
+
+    param_dict = {'W1':layer1.params.weights,'b1':layer1.params.biases,'W2':layer2.params.weights,'b2':layer2.params.biases,'O':output_layer.params.weights,'bo':output_layer.params.biases}
+
+    return net,input_dict,target_dict,param_dict
+
 def binary_tied_autoencoder_dropout(
-        X=None,numhid=7,
+        X=None,numhid=10,
         input_layer_dropout_type=dp.VanillaDropper,
         input_layer_dropout_rate=0.2,
         hidden_layer_dropout_type=dp.VanillaDropper,
@@ -83,14 +113,14 @@ def binary_tied_autoencoder_dropout(
         X = np.random.rand(5,10).round()
     input_layer = la.InputLayer(X.shape[1],dropper=input_layer_dropout_type(input_layer_dropout_rate))
     layer1 = la.Layer(numhid,non.SigmoidNonlin(),dropper=hidden_layer_dropout_type(hidden_layer_dropout_rate))
-    output_layer = la.Layer(X.shape[1],non.SigmoidNonlin(),weight_type=lp.TransposeWeight)
+    output_layer = la.Layer(X.shape[1],non.SigmoidNonlin())
 
     net = nnet.NeuralNet()
     net.add_input_layer(input_layer)
     net.add_layer(input_layer,layer1)
     net.add_layer(layer1,output_layer)
 
-    net.tie_weights(layer1,output_layer)
+    #net.tie_weights(layer1,output_layer)
 
     net.add_input('input',input_layer)
     net.add_loss_function('reconstruction loss',output_layer,non.SigmoidNonlin.crossentropy_loss)
