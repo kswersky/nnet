@@ -78,7 +78,7 @@ def one_layer_classifier_net(
         numhid,
         input_layer_dropout_type=dp.VanillaDropper,
         input_layer_dropout_rate=0.2,
-        hidden_layer_dropout_type=dp.PLGumbelDropper,
+        hidden_layer_dropout_type=dp.VanillaDropper,
         hidden_layer_dropout_rate=0.5):
 
     input_layer = la.InputLayer(X.shape[1],dropper=input_layer_dropout_type(input_layer_dropout_rate))
