@@ -37,3 +37,23 @@ class VanillaDropper(Dropper):
         params.weights.param /= 1-previous_layer_dropout_rate
         params.biases.param /= 1-previous_layer_dropout_rate
         return total_input
+
+class PLGumbelDropper(Dropper):
+    def __init__(self,dropout_rate):
+        Dropper.__init__(self,dropout_rate)
+
+    def set_dropout_mask(self,X,**kwargs):
+        test = kwargs.get('test',False)
+        total_input = kwargs.get('total_input')
+        if (self.dropout_rate > 0):
+            num_drop = int(np.floor(self.dropout_rate*X.shape[1]))
+            self.drop_mask = np.zeros(X.shape)
+            if (not test):
+                G = np.random.gumbel(size=X.shape)
+                XX = G + total_input
+                ind = XX.argsort(1)[:,num_drop]
+                self.drop_mask = XX >= XX[np.arange(XX.shape[0]),ind][:,None]
+            else:
+                XX = total_input
+                ind = XX.argsort(1)[:,num_drop]
+                self.drop_mask = XX >= XX[np.arange(XX.shape[0]),ind][:,None]

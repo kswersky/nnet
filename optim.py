@@ -19,7 +19,7 @@ import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
 
 def train_nnet_lbfgs(net,maxfun=1):
-    params = fmin_l_bfgs_b(net.nnet_vec_obj, init_params, fprime=net.nnet_vec_grad, disp=1, maxfun=maxfun)
+    params = fmin_l_bfgs_b(net.nnet_vec_obj, net.get_vec(), fprime=net.nnet_vec_grad, disp=1, maxfun=maxfun)
     return params
 
 def train_nnet_sgd(net,input_dict,target_dict,**kwargs):
@@ -51,7 +51,6 @@ def train_nnet_sgd(net,input_dict,target_dict,**kwargs):
                 if (isinstance(targ,np.ndarray) and targ.shape[0] == num_examples):
                     batch_targ = targ[randIndices_data[np.mod(range(batch*batch_size,(batch+1)*batch_size),num_examples)]]
                     net.set_target(target_name,batch_targ)
-
             f = net.take_gradient_step(eta,mo)
             obj += f/num_batches
 

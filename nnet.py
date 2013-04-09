@@ -45,6 +45,7 @@ def checkgrad_vec_test(build_net,seed=1,eps=1e-5):
     net = build_net()[0]
 
     param_vec = net.get_vec()
+    np.random.seed(seed)
     f = net.forward_prop()
     net.backward_prop()
     g = net.get_vec(grad=True)
@@ -52,9 +53,11 @@ def checkgrad_vec_test(build_net,seed=1,eps=1e-5):
     for i in range(net.total_count):
         param_vec[i] += eps
         net.set_param_vec(param_vec)
+        np.random.seed(seed)
         f1 = net.forward_prop()
         param_vec[i] -= 2*eps
         net.set_param_vec(param_vec)
+        np.random.seed(seed)
         f2 = net.forward_prop()
         param_vec[i] += eps
         net.set_param_vec(param_vec)

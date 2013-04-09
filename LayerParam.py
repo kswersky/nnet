@@ -71,10 +71,11 @@ class ExpBias:
         return db
 
 class LayerParam:
-    def __init__(self,weight_type=LinearWeight,bias_type=LinearBias):
+    def __init__(self,weight_type=LinearWeight,bias_type=LinearBias,weight_constraints=None):
         self.count = 0
         self.__weight_type = weight_type
         self.__bias_type = bias_type
+        self.weight_constraints = weight_constraints
         self.weights = None
         self.biases = None
 
@@ -101,7 +102,7 @@ class LayerParam:
         self.make_biases(output_size,bias_multiplier)
 
     def make_weights(self,input_size,output_size,weight_multiplier):
-        weights = Param((input_size,output_size),weight_multiplier)
+        weights = Param((input_size,output_size),weight_multiplier,self.weight_constraints)
         self.set_weights(weights)
 
     def make_biases(self,output_size,bias_multiplier=0):
@@ -123,11 +124,12 @@ class LayerParam:
         return backprop_grad
 
 class Param:
-    def __init__(self,weight_size,multiplier):
+    def __init__(self,weight_size,multiplier,weight_constraints=None):
         self.param =  multiplier*np.random.randn(*weight_size)
         self.dparam = np.zeros(self.param.shape)
         self.moparam = np.zeros(self.param.shape)
         self.count = np.prod(self.param.shape)
+        self.weight_constraints = weight_constraints
         
     def add_to_gradients(self,dparam):
         self.dparam += dparam
@@ -137,6 +139,9 @@ class Param:
 
     def take_step(self,direction):
         self.param += direction
+        if (self.weight_constraints is not None):
+            self.param[self.param > self.weight_constraints] = self.weight_constraints
+            self.param[self.param < -self.weight_constraints] = -self.weight_constraints
 
     def reset_gradients(self):
         self.dparam = 0*self.dparam

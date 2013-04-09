@@ -79,15 +79,17 @@ def one_layer_classifier_net(
         input_layer_dropout_type=dp.VanillaDropper,
         input_layer_dropout_rate=0.2,
         hidden_layer_dropout_type=dp.VanillaDropper,
-        hidden_layer_dropout_rate=0.5):
+        hidden_layer_dropout_rate=0.8):
 
     input_layer = la.InputLayer(X.shape[1],dropper=input_layer_dropout_type(input_layer_dropout_rate))
     layer1 = la.Layer(numhid,non.ReluNonlin(),dropper=hidden_layer_dropout_type(hidden_layer_dropout_rate))
+    layer2 = la.Layer(numhid,non.ReluNonlin(),dropper=hidden_layer_dropout_type(hidden_layer_dropout_rate))
     output_layer = la.Layer(Y.shape[1],non.SoftmaxNonlin())
 
     net = nnet.NeuralNet()
     net.add_input_layer(input_layer)
     net.add_layer(input_layer,layer1)
+    net.add_layer(layer1,layer2)
     net.add_layer(layer1,output_layer)
 
     net.add_input('input',input_layer)
@@ -100,28 +102,71 @@ def one_layer_classifier_net(
 
     return net,input_dict,target_dict,param_dict
 
+def one_layer_regression_net(
+        X=None,
+        Y=None,
+        numhid=7,
+        input_layer_dropout_type=dp.VanillaDropper,
+        input_layer_dropout_rate=0,
+        hidden_layer_dropout_type=dp.VanillaDropper,
+        hidden_layer_dropout_rate=0):
+
+    rand_data = False
+    rand_targets = False
+    if (X is None):
+        X = np.random.randn(5,numhid)
+        rand_data = True
+    if (Y is None):
+        Y = np.random.randn(5,1)
+        rand_targets = True
+    input_layer = la.InputLayer(X.shape[1],dropper=input_layer_dropout_type(input_layer_dropout_rate))
+    layer1 = la.Layer(numhid,non.SigmoidNonlin(),dropper=hidden_layer_dropout_type(hidden_layer_dropout_rate))
+    layer2 = la.Layer(numhid,non.SigmoidNonlin(),dropper=hidden_layer_dropout_type(hidden_layer_dropout_rate))
+    output_layer = la.Layer(Y.shape[1],non.LinearNonlin())
+
+    net = nnet.NeuralNet()
+    net.add_input_layer(input_layer)
+    net.add_layer(input_layer,layer1,weight_multiplier=0.1)
+    net.add_layer(layer1,layer2,weight_multiplier=0.1)
+    net.add_layer(layer1,output_layer,weight_multiplier=0.1)
+
+    net.add_input('input',input_layer)
+    net.add_loss_function('squared loss',output_layer,non.LinearNonlin.squared_loss)
+
+    if (rand_data):
+        net.set_input('input',X)
+    if (rand_targets):
+        net.set_target('squared loss',Y)
+
+    input_dict = {'input':X}
+    target_dict = {'squared loss':Y}
+
+    param_dict = {'W':layer1.params.weights,'b':layer1.params.biases,'O':output_layer.params.weights,'bo':output_layer.params.biases}
+
+    return net,input_dict,target_dict,param_dict
+
 def binary_tied_autoencoder_dropout(
         X=None,numhid=10,
         input_layer_dropout_type=dp.VanillaDropper,
-        input_layer_dropout_rate=0.2,
+        input_layer_dropout_rate=0,
         hidden_layer_dropout_type=dp.VanillaDropper,
-        hidden_layer_dropout_rate=0.5):
+        hidden_layer_dropout_rate=0.95):
 
     if (X is None):
         X = np.random.rand(5,10).round()
     input_layer = la.InputLayer(X.shape[1],dropper=input_layer_dropout_type(input_layer_dropout_rate))
     layer1 = la.Layer(numhid,non.SigmoidNonlin(),dropper=hidden_layer_dropout_type(hidden_layer_dropout_rate))
-    output_layer = la.Layer(X.shape[1],non.SigmoidNonlin())
+    output_layer = la.Layer(X.shape[1],non.LinearNonlin(),weight_type=lp.TransposeWeight)
 
     net = nnet.NeuralNet()
     net.add_input_layer(input_layer)
     net.add_layer(input_layer,layer1)
     net.add_layer(layer1,output_layer)
 
-    #net.tie_weights(layer1,output_layer)
+    net.tie_weights(layer1,output_layer)
 
     net.add_input('input',input_layer)
-    net.add_loss_function('reconstruction loss',output_layer,non.SigmoidNonlin.crossentropy_loss)
+    net.add_loss_function('reconstruction loss',output_layer,non.LinearNonlin.squared_loss)
     
     net.set_input('input',X)
     net.set_target('reconstruction loss',X)

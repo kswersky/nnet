@@ -20,14 +20,18 @@ import LayerParam as lp
 import Dropout as dp
 
 class Layer:
-    def __init__(self,size,nonlin,weight_type=lp.LinearWeight,bias_type=lp.LinearBias,dropper=dp.VanillaDropper(0)):
+    def __init__(self,size,nonlin,**kwargs):
+        weight_type = kwargs.get('weight_type',lp.LinearWeight)
+        bias_type = kwargs.get('bias_type',lp.LinearBias)
+        dropper = kwargs.get('dropper',dp.VanillaDropper(0))
+        weight_constraints = kwargs.get('weight_constraints',None)
         self.size = size
         self.nonlin = nonlin
         self.output_layers = []
         self.input_layer = None
         self.inputs = None
         self.targets = {}
-        self.params = lp.LayerParam(weight_type,bias_type)
+        self.params = lp.LayerParam(weight_type,bias_type,weight_constraints=weight_constraints)
         self.outputs = None
         self.backprop_grad = None
         self.loss_functions = {}
@@ -43,7 +47,7 @@ class Layer:
             self.total_input = self.dropper.compute_total_input_test(self.input_layer.outputs,self.params,self.input_layer.dropper.dropout_rate)
 
         self.outputs = self.nonlin.nonlin(self.total_input)
-        self.dropper.set_dropout_mask(self.outputs,test=test)
+        self.dropper.set_dropout_mask(self.outputs,test=test,total_input=self.total_input)
         self.outputs = self.dropper.apply_dropout(self.outputs,test=test)
 
         if (self.loss_functions):

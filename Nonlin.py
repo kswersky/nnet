@@ -26,6 +26,21 @@ class Nonlin:
     def nonlin_grad_J(self):
         return None
 
+class LinearNonlin(Nonlin):
+    def nonlin(self,total_input):
+        return total_input
+
+    def nonlin_grad_J(self,total_input,backprop_tot):
+        return backprop_tot
+
+    def squared_loss(self,total_input,targets,grad=False):
+        if (not grad):
+            loss = 0.5*np.sum((total_input-targets)**2) / total_input.shape[0]
+            return loss
+        else:
+            dloss = (total_input - targets) / total_input.shape[0]
+            return dloss
+
 class SigmoidNonlin(Nonlin):
     def nonlin(self,total_input):
         return nu.sigmoid(total_input)
